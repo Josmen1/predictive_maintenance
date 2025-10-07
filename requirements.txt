@@ -1,0 +1,13 @@
+python-dotenv
+fastapi
+uvicorn[standard]
+pandas
+numpy
+matplotlib
+pymongo
+scikit-learn
+seaborn
+#requests
+beautifulsoup4
+
+-e . # For local package development
