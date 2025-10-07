@@ -8,5 +8,7 @@ pymongo
 scikit-learn
 seaborn
 beautifulsoup4
+pyyaml
+prefect
 
 ##-e .
