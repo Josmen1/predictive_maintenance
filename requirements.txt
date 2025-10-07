@@ -7,7 +7,6 @@ matplotlib
 pymongo
 scikit-learn
 seaborn
-#requests
 beautifulsoup4
 
--e . # For local package development
+##-e .
