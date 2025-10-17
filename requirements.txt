@@ -5,10 +5,15 @@ pandas
 numpy
 matplotlib
 pymongo
+pymongo[srv]==3.12
 scikit-learn
 seaborn
 beautifulsoup4
 pyyaml
 prefect
+ipykernel
+lightgbm
+catboost
+xgboost
 
 ##-e .

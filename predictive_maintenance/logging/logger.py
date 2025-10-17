@@ -10,20 +10,24 @@ Usage Example:
     log.info("This is an info message")
 """
 
-import logging                          # Python's built-in logging library
-from logging.handlers import RotatingFileHandler  # For rotating log files (prevents huge single log)
-import os                             # For creating directories and file paths
+import logging  # Python's built-in logging library
+from logging.handlers import (
+    RotatingFileHandler,
+)  # For rotating log files (prevents huge single log)
+import os  # For creating directories and file paths
 from datetime import datetime  # For timestamping log files if needed
 
 # ============================
 # 1. Logging Configuration Constants
 # ============================
 
-LOG_DIR = "logs"                        # Folder where log files will be stored
-LOG_FILE_NAME = f"{datetime.now().strftime('%d_%m_%Y_H%_%M')}.log"              # Name of the main log file
-LOG_LEVEL = logging.DEBUG              # Global log level: capture all messages from DEBUG and up
-MAX_LOG_SIZE = 5_000_000               # 5 MB max size before rotating the log file
-BACKUP_COUNT = 3                       # Keep up to 3 old rotated log files (e.g., app.log.1, app.log.2)
+LOG_DIR = "logs"  # Folder where log files will be stored
+LOG_FILE_NAME = (
+    f"{datetime.now().strftime('%d_%m_%Y_%H_%M')}.log"  # Name of the main log file
+)
+LOG_LEVEL = logging.DEBUG  # Global log level: capture all messages from DEBUG and up
+MAX_LOG_SIZE = 5_000_000  # 5 MB max size before rotating the log file
+BACKUP_COUNT = 3  # Keep up to 3 old rotated log files (e.g., app.log.1, app.log.2)
 
 # ============================
 # 2. Ensure Log Directory Exists
@@ -42,9 +46,7 @@ LOG_FILE_PATH = os.path.join(LOG_DIR, LOG_FILE_NAME)
 # The formatter controls how each log message looks.
 # Example output:
 # 2025-10-07 15:22:11,345 - my_module - INFO - This is a message
-formatter = logging.Formatter(
-    "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
 # ============================
 # 4. Create File Handler (Rotating)
@@ -54,10 +56,10 @@ formatter = logging.Formatter(
 # RotatingFileHandler automatically "rolls over" the log file
 # once it reaches MAX_LOG_SIZE, and keeps BACKUP_COUNT older files.
 file_handler = RotatingFileHandler(
-    LOG_FILE_PATH,            # Where to store the log file
-    maxBytes=MAX_LOG_SIZE,    # Max size before rotation
-    backupCount=BACKUP_COUNT, # Number of backup files to keep
-    encoding="utf-8"          # Handle Unicode properly in log messages
+    LOG_FILE_PATH,  # Where to store the log file
+    maxBytes=MAX_LOG_SIZE,  # Max size before rotation
+    backupCount=BACKUP_COUNT,  # Number of backup files to keep
+    encoding="utf-8",  # Handle Unicode properly in log messages
 )
 
 # Set the minimum log level for the file handler.
@@ -85,6 +87,7 @@ console_handler.setFormatter(formatter)
 # ============================
 # 6. Logger Factory Function
 # ============================
+
 
 def get_logger(name: str) -> logging.Logger:
     """
