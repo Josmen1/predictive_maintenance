@@ -15,5 +15,5 @@ ipykernel
 lightgbm
 catboost
 xgboost
-
+dnspython
 ##-e .

@@ -57,7 +57,6 @@ class PredictiveMaintenanceDataExtractor:
             if len(data) == 0:
                 log.warning("No data found in the collection.")
                 return None
-            import pandas as pd
 
             df = pd.DataFrame(data)
             log.info(f"Data fetched successfully with shape: {df.shape}")
@@ -94,14 +93,14 @@ class PredictiveMaintenanceDataExtractor:
 
 
 if __name__ == "__main__":
-    DATABASE_NAME = "predictor"
+    DATABASE_NAME = "Menge_predictor"
     COLLECTION_NAME = "okioma_predictor"
     try:
         log.info("Starting data extraction and processing...")
         extractor = PredictiveMaintenanceDataExtractor(
             records=None,
             database_name=DATABASE_NAME,
-            collection_name=COLLECTION_NAME,
+            collection_name=None,
         )
         df_train = load_data(
             "Prediction_Dataset/Turbofan_Engine_data_Set", "train_FD00"
@@ -132,9 +131,16 @@ if __name__ == "__main__":
         test_records = extractor.csv_to_json(file_path=test_output_path)
         log.info("Data conversion to JSON completed successfully.")
         # Push data to MongoDB
+        # Since we are pushing data to separate collections for train and test,
+        # we need to dynamically set the collection name before each push
+        extractor.collection_name = "train_predictor"
         no_of_train_records = extractor.push_data_to_mongo(records=train_records)
+        extractor.collection_name = "test_predictor"
         no_of_test_records = extractor.push_data_to_mongo(records=test_records)
         # print the first five records
+        # Using json_util.dumps for better formatting
+        # Json_util helps in serializing MongoDB specific data types removing the mongo_db id field
+
         print("First five training records:")
         print(json_util.dumps(train_records[:5], indent=4))
         print("First five testing records:")
