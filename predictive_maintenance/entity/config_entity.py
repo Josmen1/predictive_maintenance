@@ -48,8 +48,7 @@ class DataIngestionConfig:
 
     def __init__(self, training_pipeline_config: TrainingPipelineConfig):
         try:
-            self.train_collection_name = training_pipeline.TRAIN_DATA_INGESTION_COLLECTION_NAME
-            self.test_collection_name = training_pipeline.TEST_DATA_INGESTION_COLLECTION_NAME
+            self.collection_name = training_pipeline.COLLECTION_NAME
             self.database_name = training_pipeline.DATA_INGESTION_DATABASE_NAME
             self.data_ingestion_dir = os.path.join(
                 training_pipeline_config.artifact_dir,
@@ -65,15 +64,107 @@ class DataIngestionConfig:
                 training_pipeline.DATA_INGESTION_FEATURE_STORE_DIR,
                 training_pipeline.TEST_FILE_NAME,
             )
+            self.rul_feature_store_file_path = os.path.join(
+                self.data_ingestion_dir,
+                training_pipeline.DATA_INGESTION_FEATURE_STORE_DIR,
+                training_pipeline.RUL_FILE_NAME,
+            )
             self.training_file_path = os.path.join(
                 self.data_ingestion_dir,
                 training_pipeline.DATA_INGESTION_INGESTED_DIR,
-                training_pipeline.FINISHED_TRAIN_FILE_NAME,
+                training_pipeline.TRAIN_FILE_NAME,
             )
             self.testing_file_path = os.path.join(
                 self.data_ingestion_dir,
                 training_pipeline.DATA_INGESTION_INGESTED_DIR,
-                training_pipeline.FINISHED_TEST_FILE_NAME,
+                training_pipeline.TEST_FILE_NAME,
             )
+            self.rul_file_path = os.path.join(
+                self.data_ingestion_dir,
+                training_pipeline.DATA_INGESTION_INGESTED_DIR,
+                training_pipeline.RUL_FILE_NAME,
+            )
+        except Exception as e:
+            raise PredictiveMaintenanceException(e, sys)
+
+
+"""
+Create DataValidationConfig class
+
+"""
+
+
+class DataValidationConfig:
+    """Configuration for data validation process.
+    This class sets up the necessary parameters for validating data,
+    including directory paths for storing valid and invalid data,
+    as well as drift reports.
+    Attributes:
+        data_validation_dir (str): Directory for data validation artifacts.
+        valid_data_dir (str): Directory for storing valid data.
+        invalid_data_dir (str): Directory for storing invalid data.
+        drift_report_file_path (str): File path for storing drift report.
+    """
+
+    def __init__(self, training_pipeline_config: TrainingPipelineConfig):
+        try:
+            self.data_validation_dir = os.path.join(
+                training_pipeline_config.artifact_dir,
+                training_pipeline.DATA_VALIDATION_DIR_NAME,
+            )
+            self.valid_data_dir = os.path.join(
+                self.data_validation_dir,
+                training_pipeline.DATA_VALIDATION_VALID_DIR,
+            )
+            self.invalid_data_dir = os.path.join(
+                self.data_validation_dir,
+                training_pipeline.DATA_VALIDATION_INVALID_DIR,
+            )
+            self.valid_train_file_path = os.path.join(
+                self.valid_data_dir,
+                training_pipeline.TRAIN_FILE_NAME,
+            )
+            self.valid_test_file_path = os.path.join(
+                self.valid_data_dir,
+                training_pipeline.TEST_FILE_NAME,
+            )
+            self.valid_rul_file_path = os.path.join(
+                self.valid_data_dir,
+                training_pipeline.RUL_FILE_NAME,
+            )
+            self.invalid_train_file_path = os.path.join(
+                self.invalid_data_dir,
+                training_pipeline.TRAIN_FILE_NAME,
+            )
+            self.invalid_test_file_path = os.path.join(
+                self.invalid_data_dir,
+                training_pipeline.TEST_FILE_NAME,
+            )
+            self.invalid_rul_file_path = os.path.join(
+                self.invalid_data_dir,
+                training_pipeline.RUL_FILE_NAME,
+            )
+            self.drift_report_file_path = os.path.join(
+                self.data_validation_dir,
+                training_pipeline.DATA_VALIDATION_DRIFT_REPORT_DIR,
+                training_pipeline.DATA_VALIDATION_DRIFT_REPORT_FILE_NAME,
+            )
+            """
+            self.train_drift_report_file_path = os.path.join(
+                self.data_validation_dir,
+                training_pipeline.DATA_VALIDATION_DRIFT_REPORT_DIR,
+                training_pipeline.TRAIN_DATA_VALIDATION_DRIFT_REPORT_FILE_NAME,
+            )
+            self.test_drift_report_file_path = os.path.join(
+                self.data_validation_dir,
+                training_pipeline.DATA_VALIDATION_DRIFT_REPORT_DIR,
+                training_pipeline.TEST_DATA_VALIDATION_DRIFT_REPORT_FILE_NAME,
+            )
+            self.rul_drift_report_file_path = os.path.join(
+                self.data_validation_dir,
+                training_pipeline.DATA_VALIDATION_DRIFT_REPORT_DIR,
+                training_pipeline.RUL_DATA_VALIDATION_DRIFT_REPORT_FILE_NAME,
+            )
+            """
         except Exception as e:
             raise PredictiveMaintenanceException(e, sys)

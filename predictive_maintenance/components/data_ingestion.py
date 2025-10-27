@@ -5,7 +5,7 @@ import os
 import sys
 import pymongo
 
-from typing import List
+from typing import List, Tuple, Optional
 
 # import exception file
 from predictive_maintenance.exception.exception import PredictiveMaintenanceException
@@ -47,41 +47,104 @@ class DataIngestion:
         except Exception as e:
             raise PredictiveMaintenanceException(e, sys)
 
-    def fetch_data_from_collection(self) -> pd.DataFrame:
-        """Fetches data from the specified MongoDB collection and returns it as a DataFrame.
-        Args:
-            collection_name (str): Name of the MongoDB collection to fetch data from.
-        Returns:
-            pd.DataFrame: DataFrame containing the data fetched from the collection.
+    """
+    """
+
+    def fetch_data_from_collection(
+        self,
+    ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+        """
+        Minimal-change version:
+        - single Mongo find
+        - split with 'split' field
+        - for RUL: drop NaNs (columns that are all-NaN) and, if possible,
+            reduce to exactly [subset_col, value_col]; otherwise keep the
+            remaining non-all-NaN columns.
         """
         try:
             database_name = self.data_ingestion_config.database_name
-            train_collection_name = self.data_ingestion_config.train_collection_name
-            test_collection_name = self.data_ingestion_config.test_collection_name
-            train_collection = self.client[database_name][train_collection_name]
-            test_collection = self.client[database_name][test_collection_name]
-            # Fetch data from train collection
-            train_data = list(train_collection.find())
-            test_data = list(test_collection.find())
-            # Convert to DataFrames
-            train_df = pd.DataFrame(train_data)
-            test_df = pd.DataFrame(test_data)
-            # Check if data is empty
-            if len(train_df) == 0:
-                log.warning(f"No data found in collection: {train_collection_name}")
-                return pd.DataFrame()
-            if len(test_df) == 0:
-                log.warning(f"No data found in collection: {test_collection_name}")
-                return pd.DataFrame()
-            # Remove the MongoDB specific '_id' field if it exists
-            if "_id" in train_df.columns.to_list():
-                train_df.drop("_id", axis=1, inplace=True)
-            log.info(
-                f"Fetched {len(train_df)} records from collection: {train_collection_name}"
+            collection_name = self.data_ingestion_config.collection_name
+            collection = self.client[database_name][collection_name]
+
+            # One fetch; skip _id to avoid later drops
+            df = pd.DataFrame(list(collection.find({}, {"_id": 0})))
+
+            if df.empty:
+                log.warning(f"No data found in collection: {collection_name}")
+                return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+
+            # Train/Test masks
+            if "split" in df.columns:
+                split_norm = df["split"].astype(str).str.strip().str.lower()
+                train_mask = split_norm.eq("train")
+                test_mask = split_norm.eq("test")
+            else:
+                train_mask = pd.Series(False, index=df.index)
+                test_mask = pd.Series(False, index=df.index)
+
+            # Train/Test frames (drop routing field)
+            train_df = df.loc[train_mask].reset_index(drop=True)
+            test_df = df.loc[test_mask].reset_index(drop=True)
+
+            # RUL = anything not train/test
+            rul_raw = df.loc[~train_mask & ~test_mask].drop(
+                columns=["split"], errors="ignore"
             )
-            if "_id" in test_df.columns.to_list():
-                test_df.drop("_id", axis=1, inplace=True)
-            return train_df, test_df
+
+            # If nothing falls in RUL, return empty
+            if rul_raw.empty:
+                rul_df = pd.DataFrame()
+            else:
+                # First, drop columns that are entirely NaN within RUL slice
+                rul_trim = rul_raw.dropna(axis=1, how="all")
+
+                # Try to keep only the desired two columns if we can detect them
+                value_col = getattr(self.data_ingestion_config, "rul_value_col", None)
+                subset_col = getattr(self.data_ingestion_config, "rul_subset_col", None)
+
+                # Lightweight autodetect only if not configured (no heavy heuristics)
+
+                if value_col is None:
+                    for cand in ["RUL", "rul", "remaining_useful_life", "value"]:
+                        if cand in rul_trim.columns:
+                            value_col = cand
+                            break
+                if subset_col is None:
+                    for cand in ["subset", "subset_id", "unit_id", "id"]:
+                        if cand in rul_trim.columns:
+                            subset_col = cand
+                            break
+                # ...
+                if value_col in rul_trim.columns and subset_col in rul_trim.columns:
+                    # value first (e.g., "RUL"), then subset
+                    rul_df = (
+                        rul_trim[[value_col, subset_col]]
+                        .dropna(subset=[value_col, subset_col])
+                        .reset_index(drop=True)
+                    )
+                else:
+                    # Fall back: return trimmed RUL with NaN-only columns removed
+                    if value_col or subset_col:
+                        log.warning(
+                            f"Could not find both RUL columns (subset={subset_col}, value={value_col}). "
+                            f"Returning RUL with NaN-only columns removed."
+                        )
+                    rul_df = rul_trim.reset_index(drop=True)
+                # ...
+
+            log.info(
+                f"Fetched {len(df)} records from '{collection_name}' -> "
+                f"train={len(train_df)}, test={len(test_df)}, RUL={len(rul_df)}"
+            )
+            if train_df.empty:
+                log.warning("Train split is empty.")
+            if test_df.empty:
+                log.warning("Test split is empty.")
+            if rul_df.empty:
+                log.warning("RUL set is empty.")
+
+            return train_df, test_df, rul_df
+
         except Exception as e:
             raise PredictiveMaintenanceException(e, sys)
 
@@ -120,7 +183,7 @@ class DataIngestion:
             List[pd.DataFrame]: A list containing DataFrames for training and testing data.
         """
         try:
-            train_df, test_df = self.fetch_data_from_collection()
+            train_df, test_df, rul_df = self.fetch_data_from_collection()
             log.info("Data ingestion completed successfully.")
             # Export data to feature store
             self.export_data_to_feature_store(
@@ -128,6 +191,9 @@ class DataIngestion:
             )
             self.export_data_to_feature_store(
                 test_df, self.data_ingestion_config.test_feature_store_file_path
+            )
+            self.export_data_to_feature_store(
+                rul_df, self.data_ingestion_config.rul_feature_store_file_path
             )
             # We are not splitting the data here as we are fetching already split data
             # from collections, so we'll straightaway save the dataframes (similar to those sent to the feature store)
@@ -138,10 +204,14 @@ class DataIngestion:
             self.save_data_to_ingested_files(
                 test_df, self.data_ingestion_config.testing_file_path
             )
+            self.save_data_to_ingested_files(
+                rul_df, self.data_ingestion_config.rul_file_path
+            )
             # return DataIngestionArtifact
             data_ingestion_artifact = DataIngestionArtifact(
                 training_file_path=self.data_ingestion_config.training_file_path,
                 testing_file_path=self.data_ingestion_config.testing_file_path,
+                rul_file_path=self.data_ingestion_config.rul_file_path,
             )
             return data_ingestion_artifact
         except Exception as e:

@@ -16,4 +16,6 @@ lightgbm
 catboost
 xgboost
 dnspython
+dill
+#pickle5
 ##-e .

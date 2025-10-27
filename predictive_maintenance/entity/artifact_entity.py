@@ -16,3 +16,31 @@ class DataIngestionArtifact:
     # feature_store_file_path: str
     training_file_path: str
     testing_file_path: str
+    rul_file_path: str
+
+
+@dataclass
+class DataValidationArtifact:
+    """Data class for storing data validation artifact information.
+    In this case, it holds the file paths for valid and invalid datasets,
+    as well as the drift report file path.
+
+    Attributes:
+        valid_train_file_path (str): Path to the valid training dataset file.
+        valid_test_file_path (str): Path to the valid testing dataset file.
+        invalid_train_file_path (str): Path to the invalid training dataset file.
+        invalid_test_file_path (str): Path to the invalid testing dataset file.
+        drift_report_file_path (str): Path to the drift report file.
+    """
+
+    validation_status: bool
+    valid_train_file_path: str
+    valid_test_file_path: str
+    valid_rul_file_path: str
+    invalid_train_file_path: str
+    invalid_test_file_path: str
+    invalid_rul_file_path: str
+    drift_report_file_path: str
+    # train_drift_report_file_path: str
+    # test_drift_report_file_path: str
+    # rul_drift_report_file_path: str
