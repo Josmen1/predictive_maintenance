@@ -168,3 +168,39 @@ class DataValidationConfig:
             """
         except Exception as e:
             raise PredictiveMaintenanceException(e, sys)
+
+
+class DataTransformationConfig:
+    """Configuration for data transformation process.
+    This class sets up the necessary parameters for transforming data,
+    including directory paths for storing transformed data and preprocessing objects.
+    Attributes:
+        data_transformation_dir (str): Directory for data transformation artifacts.
+        transformed_train_dir (str): Directory for storing transformed training data.
+        transformed_test_dir (str): Directory for storing transformed testing data.
+        preprocessed_object_file_path (str): File path for storing preprocessing object.
+    """
+
+    def __init__(self, training_pipeline_config: TrainingPipelineConfig):
+        try:
+            self.data_transformation_dir = os.path.join(
+                training_pipeline_config.artifact_dir,
+                training_pipeline.DATA_TRANSFORMATION_DIR_NAME,
+            )
+            self.transformed_train_file_path = os.path.join(
+                self.data_transformation_dir,
+                training_pipeline.TRANSFORMED_DATA_DIR,
+                training_pipeline.TRAIN_FILE_NAME,
+            )
+            self.transformed_test_file_path = os.path.join(
+                self.data_transformation_dir,
+                training_pipeline.TRANSFORMED_DATA_DIR,
+                training_pipeline.TEST_FILE_NAME,
+            )
+            self.transformation_object_file_path = os.path.join(
+                self.data_transformation_dir,
+                training_pipeline.DATA_TRANSFORMATION_TRANSFORMED_OBJECT_DIR,
+                training_pipeline.PREPROCESSING_OBJECT_FILE_NAME,
+            )
+        except Exception as e:
+            raise PredictiveMaintenanceException(e, sys)

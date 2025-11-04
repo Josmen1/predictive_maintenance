@@ -68,6 +68,8 @@ class DataIngestion:
 
             # One fetch; skip _id to avoid later drops
             df = pd.DataFrame(list(collection.find({}, {"_id": 0})))
+            # drop columns that are completely empty
+            # df = df.dropna(axis=1, how="all")
 
             if df.empty:
                 log.warning(f"No data found in collection: {collection_name}")
@@ -83,8 +85,10 @@ class DataIngestion:
                 test_mask = pd.Series(False, index=df.index)
 
             # Train/Test frames (drop routing field)
-            train_df = df.loc[train_mask].reset_index(drop=True)
-            test_df = df.loc[test_mask].reset_index(drop=True)
+            train_df = (
+                df.loc[train_mask].dropna(axis=1, how="all").reset_index(drop=True)
+            )
+            test_df = df.loc[test_mask].dropna(axis=1, how="all").reset_index(drop=True)
 
             # RUL = anything not train/test
             rul_raw = df.loc[~train_mask & ~test_mask].drop(

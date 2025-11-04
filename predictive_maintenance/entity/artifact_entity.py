@@ -44,3 +44,19 @@ class DataValidationArtifact:
     # train_drift_report_file_path: str
     # test_drift_report_file_path: str
     # rul_drift_report_file_path: str
+
+
+@dataclass
+class DataTransformationArtifact:
+    """Data class for storing data transformation artifact information.
+
+    Attributes:
+        transformed_train_file_path (str): Path to the transformed training dataset file.
+        transformed_test_file_path (str): Path to the transformed testing dataset file.
+        transformed_rul_file_path (str): Path to the transformed RUL dataset file.
+    """
+
+    transformation_object_file_path: str
+    transformed_train_file_path: str
+    transformed_test_file_path: str
+    # transformed_rul_file_path: str

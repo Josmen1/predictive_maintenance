@@ -10,13 +10,18 @@ of extracting and preparing the data into a combined dataframe.
 Both for training and testing datasets.
 """
 TARGET_COLUMN = "RUL"
-BASE_COLUMN_NAMES = ["unit_number", "time_in_cycles", "ops_1", "ops_2", "ops_3"]
-SENSOR_COLUMN_NAMES = [f"sensor_{i}" for i in range(1, 22)]
-ALL_COLUMN_NAMES = BASE_COLUMN_NAMES + SENSOR_COLUMN_NAMES + ["subset"] + ["split"]
-SUBSET_IDS = [f"FD00{i}" for i in range(1, 5)]
+ID_COLUMNS = ["unit_number", "time_in_cycles", "subset", "split"]
 OPS_COLUMNS = ["ops_1", "ops_2", "ops_3"]
-DRIFT_COLUMNS = OPS_COLUMNS + SENSOR_COLUMN_NAMES
+SENSOR_COLUMN_NAMES = [f"sensor_{i}" for i in range(1, 22)]
+BASE_FEATURE_COLUMNS = OPS_COLUMNS + SENSOR_COLUMN_NAMES
+ALL_COLUMN_NAMES = ID_COLUMNS + BASE_FEATURE_COLUMNS + ["subset"] + ["split"]
+SUBSET_IDS = [f"FD00{i}" for i in range(1, 5)]
+# OPS_COLUMNS = ["ops_1", "ops_2", "ops_3"]
+# DRIFT_COLUMNS = OPS_COLUMNS + SENSOR_COLUMN_NAMES
+ZN_SUFFIX = "_zn"
+PROTECT_COLUMNS = ID_COLUMNS + [TARGET_COLUMN, "subset"]
 
+PREPROCESSING_OBJECT_FILE_NAME = "preprocessing_object.joblib"
 """
 Defining constants for training pipeline
 """
@@ -56,3 +61,11 @@ DATA_VALIDATION_DRIFT_REPORT_FILE_NAME: str = "drift_report.yaml"
 # TRAIN_DATA_VALIDATION_DRIFT_REPORT_FILE_NAME: str = "train_drift_report.yaml"
 # TEST_DATA_VALIDATION_DRIFT_REPORT_FILE_NAME: str = "test_drift_report.yaml"
 # RUL_DATA_VALIDATION_DRIFT_REPORT_FILE_NAME: str = "rul_drift_report.yaml"
+
+"""
+Data transformation related constants
+"""
+DATA_TRANSFORMATION_DIR_NAME: str = "data_transformation"
+TRANSFORMED_DATA_DIR: str = "transformed_data"
+DATA_TRANSFORMATION_TRANSFORMED_OBJECT_DIR: str = "transformed_object"
+DATA_TRANSFORMATION_CORRELATION_THRESHOLD: float = 0.995

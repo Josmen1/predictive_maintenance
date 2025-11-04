@@ -17,5 +17,6 @@ catboost
 xgboost
 dnspython
 dill
+joblib
 #pickle5
 ##-e .
