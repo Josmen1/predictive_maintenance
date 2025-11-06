@@ -60,3 +60,35 @@ class DataTransformationArtifact:
     transformed_train_file_path: str
     transformed_test_file_path: str
     # transformed_rul_file_path: str
+
+
+@dataclass
+class ModelEvaluationArtifact:
+    """Data class for storing model evaluation artifact information.
+
+    Attributes:
+        test_rmse (float): RMSE score on the testing dataset.
+    """
+
+    mean_absolute_error: float
+    mean_squared_error: float
+    root_mean_squared_error: float
+    mean_absolute_percentage_error: float
+
+
+@dataclass
+class ModelTrainerArtifact:
+    """Data class for storing model trainer artifact information.
+
+    Attributes:
+        trained_model_file_path (str): Path to the trained model file.
+        train_rmse (float): RMSE score on the training dataset.
+        test_rmse (float): RMSE score on the testing dataset.
+    """
+
+    trained_model_file_path: str
+    combined_object_file_path: str
+    cv_results_file_path: str
+    test_predictions_file_path: str
+    train_model_artifact: ModelEvaluationArtifact
+    test_model_artifact: ModelEvaluationArtifact

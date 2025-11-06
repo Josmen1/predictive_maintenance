@@ -204,3 +204,67 @@ class DataTransformationConfig:
             )
         except Exception as e:
             raise PredictiveMaintenanceException(e, sys)
+
+
+class ModelTrainerConfig:
+    """Configuration for model trainer process.
+    This class sets up the necessary parameters for training models,
+    including directory paths for storing model outputs and checkpoints.
+    Attributes:
+        model_trainer_dir (str): Directory for model trainer artifacts.
+        model_output_dir (str): Directory for storing model outputs.
+        model_checkpoint_dir (str): Directory for storing model checkpoints.
+    """
+
+    def __init__(self, training_pipeline_config: TrainingPipelineConfig):
+        try:
+            self.model_trainer_dir = os.path.join(
+                training_pipeline_config.artifact_dir,
+                training_pipeline.MODEL_TRAINER_DIR_NAME,
+            )
+            self.trained_model_file_path = os.path.join(
+                self.model_trainer_dir,
+                training_pipeline.MODEL_TRAINER_TRAINED_MODEL_DIR,
+                training_pipeline.MODEL_FILE_NAME,
+            )
+
+            self.expected_score = training_pipeline.MODEL_TRAINER_EXPECTED_SCORE
+            self.overfitting_underfitting_threshold = (
+                training_pipeline.MODEL_TRAINER_OVERFITTING_UNDERFITTING_THRESHOLD
+            )
+            self.test_predictions_dir = os.path.join(
+                self.model_trainer_dir,
+                training_pipeline.TEST_PREDICTIONS_DIR,
+            )
+            self.cv_results_dir = os.path.join(
+                self.model_trainer_dir,
+                training_pipeline.MODEL_TRAINER_CV_RESULTS_DIR,
+            )
+            self.cv_results_file_path = os.path.join(
+                self.cv_results_dir,
+                training_pipeline.MODEL_TRAINER_CV_FILE_NAME,
+            )
+            self.test_predictions_file_path = os.path.join(
+                self.test_predictions_dir,
+                training_pipeline.TEST_PREDICTIONS_FILE_NAME,
+            )
+            self.metric_dir = os.path.join(
+                self.model_trainer_dir,
+                training_pipeline.MODEL_TRAINER_METRICS_DIR,
+            )
+            self.metric_file_path = os.path.join(
+                self.metric_dir,
+                training_pipeline.MODEL_TRAINER_METRICS_FILE_NAME,
+            )
+            self.combined_object_file_path = os.path.join(
+                self.model_trainer_dir,
+                training_pipeline.MODEL_TRAINER_TRAINED_MODEL_DIR,
+                training_pipeline.COMBINED_OBJECT_FILE_NAME,
+            )
+            self.target_column = training_pipeline.TARGET_COLUMN
+            self.group_column = training_pipeline.GROUP_COLUMN
+            self.model_search_options = training_pipeline.MODEL_SEARCH_OPTIONS
+            self.id_cols = training_pipeline.ID_COLUMNS
+
+        except Exception as e:
+            raise PredictiveMaintenanceException(e, sys)

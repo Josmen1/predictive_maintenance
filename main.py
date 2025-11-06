@@ -1,11 +1,13 @@
 from predictive_maintenance.components.data_ingestion import DataIngestion
 from predictive_maintenance.components.data_validation import DataValidation
 from predictive_maintenance.components.data_transformation import DataTransformation
+from predictive_maintenance.components.model_trainer import ModelTrainer
 from predictive_maintenance.entity.config_entity import (
     TrainingPipelineConfig,
     DataIngestionConfig,
     DataValidationConfig,
     DataTransformationConfig,
+    ModelTrainerConfig,
 )
 
 from predictive_maintenance.exception.exception import PredictiveMaintenanceException
@@ -57,5 +59,20 @@ if __name__ == "__main__":
         log.info(f"Data Transformation Artifact: {data_transformation_artifact}")
         print(f"Data Transformation Artifact: {data_transformation_artifact}")
         log.info("Data Transformation Completed")
+
+        log.info("Starting Model Training")
+        model_trainer_config = ModelTrainerConfig(
+            training_pipeline_config=training_pipeline_config
+        )
+        model_trainer = ModelTrainer(
+            model_trainer_config=model_trainer_config,
+            data_transformation_artifact=data_transformation_artifact,
+        )
+        log.info("Initiating Model Training")
+        model_trainer_artifact = model_trainer.initiate_model_trainer()
+        log.info(f"Model Trainer Artifact: {model_trainer_artifact}")
+        print(f"Model Trainer Artifact: {model_trainer_artifact}")
+        log.info("Model Training Completed")
+
     except Exception as e:
         raise PredictiveMaintenanceException(e, sys)

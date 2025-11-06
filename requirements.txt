@@ -15,8 +15,9 @@ ipykernel
 lightgbm
 catboost
 xgboost
+# adaboost
 dnspython
 dill
 joblib
-#pickle5
-##-e .
+# pickle5
+## -e .

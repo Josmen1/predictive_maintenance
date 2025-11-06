@@ -164,6 +164,8 @@ class FinalFrameAssembler(BaseEstimator, TransformerMixin):
         )
         return X.loc[:, cols]
 
+
+"""
 # build the full preprocessing pipeline
 def build_preprocessor_pipeline(
         self,
@@ -213,10 +215,10 @@ def build_preprocessor_pipeline(
         )
 
     # drop duplicate columns if any
-    def drop_duplicate_columns(self, df: pd.DataFrame) -> pd.DataFrame:
-        try:
-            log.info("Dropping duplicate columns if any.")
-            return df.loc[:, ~df.columns.duplicated(keep="first")]
-        except Exception as e:
-            raise PredictiveMaintenanceException(e, sys)
-
+def drop_duplicate_columns(self, df: pd.DataFrame) -> pd.DataFrame:
+    try:
+        log.info("Dropping duplicate columns if any.")
+        return df.loc[:, ~df.columns.duplicated(keep="first")]
+    except Exception as e:
+        raise PredictiveMaintenanceException(e, sys)
+"""
