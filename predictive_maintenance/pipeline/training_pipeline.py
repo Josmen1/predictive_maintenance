@@ -1,11 +1,11 @@
-'''We will create several classes for the training pipeline:
+"""We will create several classes for the training pipeline:"""
 
-'''
 import sys
 import os
 
 from predictive_maintenance.logging.logger import get_logger
 from predictive_maintenance.exception.exception import PredictiveMaintenanceException
+
 log = get_logger(__name__)
 
 from predictive_maintenance.components.data_ingestion import DataIngestion
@@ -26,11 +26,15 @@ from predictive_maintenance.entity.artifact_entity import (
     DataTransformationArtifact,
     ModelTrainerArtifact,
 )
+from predictive_maintenance.cloud.s3_syncer import s3_syncer
+from predictive_maintenance.constants.training_pipeline import TRAINING_BUCKET_NAME
+
 
 class TrainingPipeline:
     def __init__(self):
         try:
             self.training_pipeline_config = TrainingPipelineConfig()
+            self.s3_syncer = s3_syncer()
         except Exception as e:
             raise PredictiveMaintenanceException(e, sys) from e
 
@@ -42,12 +46,16 @@ class TrainingPipeline:
             log.info("Starting Data Ingestion")
             data_ingestion = DataIngestion(data_ingestion_config=data_ingestion_config)
             data_ingestion_artifact = data_ingestion.initiate_data_ingestion()
-            log.info(f"Data ingestion completed; Data Ingestion Artifact: {data_ingestion_artifact}")
+            log.info(
+                f"Data ingestion completed; Data Ingestion Artifact: {data_ingestion_artifact}"
+            )
             return data_ingestion_artifact
         except Exception as e:
             raise PredictiveMaintenanceException(e, sys) from e
-        
-    def start_data_validation(self, data_ingestion_artifact: DataIngestionArtifact) -> DataValidationArtifact:
+
+    def start_data_validation(
+        self, data_ingestion_artifact: DataIngestionArtifact
+    ) -> DataValidationArtifact:
         try:
             log.info("Starting Data Validation")
             data_validation_config = DataValidationConfig(
@@ -58,12 +66,16 @@ class TrainingPipeline:
                 data_validation_config=data_validation_config,
             )
             data_validation_artifact = data_validation.initiate_data_validation()
-            log.info(f"Data Validation completed; Data Validation Artifact: {data_validation_artifact}")
+            log.info(
+                f"Data Validation completed; Data Validation Artifact: {data_validation_artifact}"
+            )
             return data_validation_artifact
         except Exception as e:
             raise PredictiveMaintenanceException(e, sys) from e
-        
-    def start_data_transformation(self, data_validation_artifact: DataValidationArtifact) -> DataTransformationArtifact:
+
+    def start_data_transformation(
+        self, data_validation_artifact: DataValidationArtifact
+    ) -> DataTransformationArtifact:
         try:
             log.info("Starting Data Transformation")
             data_transformation_config = DataTransformationConfig(
@@ -73,13 +85,19 @@ class TrainingPipeline:
                 data_validation_artifact=data_validation_artifact,
                 data_transformation_config=data_transformation_config,
             )
-            data_transformation_artifact = data_transformation.initiate_data_transformation()
-            log.info(f"Data Transformation completed; Data Transformation Artifact: {data_transformation_artifact}")
+            data_transformation_artifact = (
+                data_transformation.initiate_data_transformation()
+            )
+            log.info(
+                f"Data Transformation completed; Data Transformation Artifact: {data_transformation_artifact}"
+            )
             return data_transformation_artifact
         except Exception as e:
             raise PredictiveMaintenanceException(e, sys) from e
-        
-    def start_model_trainer(self, data_transformation_artifact: DataTransformationArtifact) -> ModelTrainerArtifact:
+
+    def start_model_trainer(
+        self, data_transformation_artifact: DataTransformationArtifact
+    ) -> ModelTrainerArtifact:
         try:
             log.info("Starting Model Training")
             model_trainer_config = ModelTrainerConfig(
@@ -90,18 +108,59 @@ class TrainingPipeline:
                 data_transformation_artifact=data_transformation_artifact,
             )
             model_trainer_artifact = model_trainer.initiate_model_trainer()
-            log.info(f"Model Training completed; Model Trainer Artifact: {model_trainer_artifact}")
+            log.info(
+                f"Model Training completed; Model Trainer Artifact: {model_trainer_artifact}"
+            )
             return model_trainer_artifact
         except Exception as e:
             raise PredictiveMaintenanceException(e, sys) from e
-        
+
+    def sync_artifact_dir_to_s3(self):
+        try:
+            artifact_dir = self.training_pipeline_config.artifact_dir
+            aws_bucket_url = (
+                f"s3://{TRAINING_BUCKET_NAME}/artifact/{os.path.basename(artifact_dir)}"
+            )
+            log.info(
+                f"Syncing artifact directory: {artifact_dir} to S3 bucket: {aws_bucket_url}"
+            )
+            self.s3_syncer.sync_folder_to_s3(
+                folder=artifact_dir, aws_bucket_url=aws_bucket_url
+            )
+            log.info("Syncing completed successfully")
+        except Exception as e:
+            raise PredictiveMaintenanceException(e, sys) from e
+
+    def sync_saved_model_to_s3(self):
+        try:
+
+            aws_bucket_url = f"s3://{TRAINING_BUCKET_NAME}/final_model/{self.training_pipeline_config.timestamp}"
+            log.info(
+                f"Syncing saved model directory: {self.training_pipeline_config.model_dir} to S3 bucket: {aws_bucket_url}"
+            )
+            self.s3_syncer.sync_folder_to_s3(
+                folder=self.training_pipeline_config.model_dir,
+                aws_bucket_url=aws_bucket_url,
+            )
+            log.info("Syncing of saved models completed successfully")
+        except Exception as e:
+            raise PredictiveMaintenanceException(e, sys) from e
+
     def run_pipeline(self):
         try:
             data_ingestion_artifact = self.start_data_ingestion()
-            data_validation_artifact = self.start_data_validation(data_ingestion_artifact)
-            data_transformation_artifact = self.start_data_transformation(data_validation_artifact)
-            model_trainer_artifact = self.start_model_trainer(data_transformation_artifact)
+            data_validation_artifact = self.start_data_validation(
+                data_ingestion_artifact
+            )
+            data_transformation_artifact = self.start_data_transformation(
+                data_validation_artifact
+            )
+            model_trainer_artifact = self.start_model_trainer(
+                data_transformation_artifact
+            )
             log.info("Training Pipeline completed successfully")
+            self.sync_artifact_dir_to_s3()
+            self.sync_saved_model_to_s3()
             return model_trainer_artifact
         except Exception as e:
             raise PredictiveMaintenanceException(e, sys) from e

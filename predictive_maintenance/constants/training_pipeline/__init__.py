@@ -97,6 +97,8 @@ MODEL_SEARCH_OPTIONS = {
     "enable_random_forest": True,
     "enable_adaboost": True,
 }
+TRAINING_BUCKET_NAME: str = "predictive-maintenance-mlops"
+
 """MLflow related constants"""
 MLFLOW_TRACKING_URI: Optional[str] = (
     None  # Set to None for default local file-based tracking
