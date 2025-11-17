@@ -151,7 +151,7 @@ def build_search_spaces(
     if enable_random_forest:
         spaces["random_forest"] = (
             # Regressor instance with base params
-            RandomForestRegressor(random_state=random_state, n_jobs=n_jobs),
+            RandomForestRegressor(random_state=random_state, n_jobs=-1, verbose=0),
             # Parameter grid to explore via GridSearchCV
             {
                 "n_estimators": [200, 400],
@@ -195,6 +195,7 @@ def build_search_spaces(
                 random_state=random_state,
                 n_jobs=n_jobs,
                 tree_method="hist",
+                verbosity=2,
             ),
             {
                 "n_estimators": [300, 600],
@@ -208,7 +209,7 @@ def build_search_spaces(
     # LightGBM space (skip if not installed)
     if enable_lightgbm and HAS_LGBM:
         spaces["lightgbm"] = (
-            LGBMRegressor(random_state=random_state),
+            LGBMRegressor(random_state=random_state, verbose=1),
             {
                 "n_estimators": [300, 600],
                 "learning_rate": [0.05, 0.1],

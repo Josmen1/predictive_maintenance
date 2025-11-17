@@ -19,5 +19,8 @@ xgboost
 dnspython
 dill
 joblib
+mlflow
+dagshub
+python-multipart
 # pickle5
 ## -e .

@@ -2,6 +2,13 @@ import os, json, warnings
 import sys
 import pandas as pd
 import numpy as np
+import mlflow
+import mlflow.sklearn
+
+import dagshub
+
+dagshub.init(repo_owner="Josmen1", repo_name="predictive_maintenance", mlflow=True)
+
 
 from sklearn.model_selection import GroupKFold, GridSearchCV
 from sklearn.metrics import make_scorer
@@ -66,6 +73,30 @@ class ModelTrainer:
             log.info("Starting model training process.")
 
             # ---------------------------
+            # MLflow: initialize tracking (NEW)
+            # ---------------------------
+            # Pull convenience references from config (short names help readability).
+            mlflow_tracking_uri = self.model_trainer_config.mlflow_tracking_uri
+            mlflow_experiment_name = self.model_trainer_config.mlflow_experiment_name
+            mlflow_autolog = self.model_trainer_config.mlflow_autolog
+            mlflow_log_models = self.model_trainer_config.mlflow_log_models
+            mlflow_tags = self.model_trainer_config.mlflow_tags
+
+            # Set tracking URI
+            if mlflow_tracking_uri:
+                mlflow.set_tracking_uri(mlflow_tracking_uri)
+                log.info(f"MLflow tracking URI set to: {mlflow_tracking_uri}")
+            # Set or create experiment
+            mlflow.set_experiment(mlflow_experiment_name)
+            log.info(f"MLflow experiment set to: {mlflow_experiment_name}")
+            # Enable autologging
+            if mlflow_autolog:
+                mlflow.sklearn.autolog(log_models=mlflow_log_models, silent=True)
+                log.info(
+                    f"MLflow sklearn autologging enabled (log_models={mlflow_log_models})"
+                )
+
+            # ---------------------------
             # Resolve required roles/paths FROM CONFIG (we do not recompute paths)
             # ---------------------------
             id_cols = (
@@ -77,7 +108,7 @@ class ModelTrainer:
             # All file paths come from ModelTrainerConfig (as you requested)
             model_output_path = self.model_trainer_config.trained_model_file_path
             combined_output_path = self.model_trainer_config.combined_object_file_path
-            metrics_path = self.model_trainer_config.cv_results_file_path
+            metrics_path = self.model_trainer_config.metrics_file_path
             cv_results_path = self.model_trainer_config.cv_results_file_path
             test_predictions_path = self.model_trainer_config.test_predictions_file_path
 
@@ -94,6 +125,43 @@ class ModelTrainer:
             )
             log.info(f"Transformed test loaded: shape={test_df.shape}")
 
+            # ---------------------------
+            # START a parent MLflow run (NEW)
+            # ---------------------------
+            # This encapsulates the whole training session (all candidate models).
+            with mlflow.start_run(run_name="model_trainer") as parent_run:
+                if mlflow_tags:
+                    mlflow.set_tags(mlflow_tags)
+                log.info(f"MLflow parent run started with tags: {mlflow_tags}")
+                # Log high-level, non-sensitive run context up front.
+                mlflow.log_params(
+                    {
+                        "target_column": target_col,
+                        "group_column": group_col,
+                        "id_columns": id_cols,
+                        "train_rows": len(train_df),
+                        "test_rows": 0 if test_df is None else len(test_df),
+                    }
+                )
+            # """
+            # ------------------------------------------------------------------
+            # LOCAL-DEBUG LIMITS (easy to remove): limit rows for quick iteration
+            # Set to 0 or delete this block for full training on the cloud.
+            # ------------------------------------------------------------------
+            DEBUG_MAX_TRAIN_ROWS = 0  # set 0 to disable
+            DEBUG_MAX_TEST_ROWS = 0  # set 0 to disable
+            if DEBUG_MAX_TRAIN_ROWS and len(train_df) > DEBUG_MAX_TRAIN_ROWS:
+                train_df = train_df.head(DEBUG_MAX_TRAIN_ROWS).reset_index(drop=True)
+                log.info(f"[DEBUG] Train limited to first {len(train_df)} rows")
+            if (
+                (test_df is not None)
+                and DEBUG_MAX_TEST_ROWS
+                and len(test_df) > DEBUG_MAX_TEST_ROWS
+            ):
+                test_df = test_df.head(DEBUG_MAX_TEST_ROWS).reset_index(drop=True)
+                log.info(f"[DEBUG] Test limited to first {len(test_df)} rows")
+            # ------------------------------------------------------------------
+            # """
             # -------------------------------------
             # Prepare X, y, groups for GridSearchCV
             # -------------------------------------
@@ -109,6 +177,7 @@ class ModelTrainer:
             # ---------------------------------------
             # All options (n_splits, n_jobs, random_state, enable_* flags) are provided via config dict
             opts = self.model_trainer_config.model_search_options
+            opts["n_splits"] = 5  # for small datasets
 
             # 1) GroupKFold with configured # splits (THIS is what makes CV grouped)
             cv = GroupKFold(n_splits=opts.get("n_splits", 5))
@@ -125,6 +194,18 @@ class ModelTrainer:
             spaces = build_search_spaces(
                 **{k: v for k, v in opts.items() if k in allowed}
             )
+            log.info(f"Built model search spaces for models: {list(spaces.keys())}")
+            # Also log the high-level search options (what knobs were enabled).
+            mlflow.log_params(
+                {
+                    "cv_n_splits": opts.get("n_splits", 5),
+                    "search_n_jobs": opts.get("n_jobs", 1),
+                    "enable_xgboost": opts.get("enable_xgboost", False),
+                    "enable_lightgbm": opts.get("enable_lightgbm", False),
+                    "enable_random_forest": opts.get("enable_random_forest", False),
+                    "enable_adaboost": opts.get("enable_adaboost", False),
+                }
+            )
 
             # ---------------------------------------
             # GridSearchCV per model with GroupKFold
@@ -137,44 +218,57 @@ class ModelTrainer:
             best = dict(
                 name=None, score=np.inf, search=None
             )  # track the global winner (lowest RMSE)
-            n_jobs = opts.get("n_jobs", -1)  # parallelism (already set in config)
+            n_jobs = opts.get("n_jobs", 1)  # parallelism (already set in config)
 
             for name, (estimator, grid) in spaces.items():
                 log.info(f"Searching model: {name} | grid params={list(grid.keys())}")
 
                 # IMPORTANT: we pass cv=GroupKFold(...) here
-                search = GridSearchCV(
-                    estimator=estimator,
-                    param_grid=grid,
-                    scoring=RMSE_SCORER,  # minimize RMSE
-                    cv=cv,  # <-- GroupKFold object
-                    n_jobs=n_jobs,  # parallel where supported
-                    verbose=1,
-                )
+                # start a nestled MLflow run for each model search
+                with mlflow.start_run(run_name=f"grid_{name}", nested=True):
+                    mlflow.log_param("model_name", name)
+                    mlflow.log_param("grid_param_keys", ", ".join(list(grid.keys())))
+                    log.info(f"MLflow nested run started with tags: {mlflow_tags}")
+                    # Not exact count for complex grids, but len of dict keys helps quick triage.
+                    # (If you want exact cartesian size you can compute it and log here.)
+                    search = GridSearchCV(
+                        estimator=estimator,
+                        param_grid=grid,
+                        scoring=RMSE_SCORER,  # minimize RMSE
+                        cv=cv,  # <-- GroupKFold object
+                        n_jobs=n_jobs,  # parallel where supported
+                        verbose=2,
+                    )
 
-                # ALSO IMPORTANT: we pass groups=groups into .fit()
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore", category=UserWarning)
-                    search.fit(X, y, groups=groups)  # <-- grouped CV happens here
+                    # ALSO IMPORTANT: we pass groups=groups into .fit()
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore", category=UserWarning)
+                        search.fit(X, y, groups=groups)  # <-- grouped CV happens here
 
-                # Convert negative best_score_ (since we minimized) back to positive RMSE
-                best_mean_cv_rmse = -float(search.best_score_)
+                    # Convert negative best_score_ (since we minimized) back to positive RMSE
+                    best_mean_cv_rmse = -float(search.best_score_)
+                    # Log candidate results to this nested run.
+                    mlflow.log_metric("best_mean_cv_rmse", best_mean_cv_rmse)
+                    # log best hyperparameters
+                    for key, value in search.best_params_.items():
+                        mlflow.log_param(f"best_hparam_{key}", value)
 
-                # Record on leaderboard
-                leaderboard.append(
-                    {
-                        "model": name,
-                        "best_mean_cv_rmse": best_mean_cv_rmse,
-                        "best_params": json.dumps(search.best_params_),
-                    }
-                )
-                log.info(
-                    f"{name} best CV RMSE: {best_mean_cv_rmse:.4f} | params: {search.best_params_}"
-                )
+                    # Record on leaderboard
+                    leaderboard.append(
+                        {
+                            "model": name,
+                            "best_mean_cv_rmse": best_mean_cv_rmse,
+                            "best_params": json.dumps(search.best_params_),
+                        }
+                    )
+                    log.info(
+                        f"{name} best CV RMSE: {best_mean_cv_rmse:.4f} | params: {search.best_params_}"
+                    )
 
-                # Track global best (smaller RMSE wins)
-                if best_mean_cv_rmse < best["score"]:
-                    best = dict(name=name, score=best_mean_cv_rmse, search=search)
+                    # Track global best (smaller RMSE wins)
+                    if best_mean_cv_rmse < best["score"]:
+                        best = dict(name=name, score=best_mean_cv_rmse, search=search)
+                        mlflow.set_tag("is_current_global_best_model", "true")
 
             # ---------------------------------------
             # Save leaderboard (sorted by CV RMSE) to PATH FROM CONFIG
@@ -182,6 +276,8 @@ class ModelTrainer:
             leaderboard_df = pd.DataFrame(leaderboard).sort_values("best_mean_cv_rmse")
             write_dataframe_to_csv(leaderboard_df, cv_results_path)
             log.info(f"Saved CV leaderboard -> {cv_results_path}")
+            # Log the leaderboard as an artifact so it’s visible in the run UI.
+            mlflow.log_artifact(cv_results_path, artifact_path="cv_leaderboard")
 
             if best["search"] is None:
                 raise RuntimeError(
@@ -195,6 +291,10 @@ class ModelTrainer:
             best_estimator.fit(X, y)
             save_object(model_output_path, best_estimator)  # save to CONFIG path
             log.info(f"Saved best model ({best['name']}) -> {model_output_path}")
+            # Log the model as an MLflow artifact
+            # Give MLflow the identity of the winning approach.
+            mlflow.set_tag("best_model_name", best["name"])
+            mlflow.log_metric("best_model_cv_rmse", float(best["score"]))
 
             # ---------------------------------------
             # Build metrics (always include winning CV RMSE)
@@ -224,6 +324,15 @@ class ModelTrainer:
                     }
                 )
                 log.info(f"Test RMSE: {metrics['test_rmse']:.4f}")
+                # Log test metrics to MLflow for quick comparison across runs
+                mlflow.log_metrics(
+                    {
+                        "test_mae": metrics["test_mae"],
+                        "test_mse": metrics["test_mse"],
+                        "test_rmse": metrics["test_rmse"],
+                        "test_mape": metrics["test_mape"],
+                    }
+                )
 
                 # Save predictions breakdown to CONFIG path
                 out = test_df[id_cols].copy()
@@ -231,6 +340,10 @@ class ModelTrainer:
                 out["prediction"] = y_hat
                 write_dataframe_to_csv(out, test_predictions_path)
                 log.info(f"Saved test predictions -> {test_predictions_path}")
+                # Log the test predictions as an artifact so it’s visible in the run UI (downloadable).
+                mlflow.log_artifact(
+                    test_predictions_path, artifact_path="test_predictions"
+                )
             else:
                 log.info("Skipping test eval (no test_df or target col missing).")
 
@@ -238,9 +351,13 @@ class ModelTrainer:
             # Save metrics.json to CONFIG path
             # ---------------------------------------
             # (We do not recompute or redefine paths; we just write the file.)
+            # Call make_directory to ensure dir exists
+            make_directory(os.path.dirname(metrics_path))
             with open(metrics_path, "w") as f:
                 json.dump(metrics, f, indent=2)
             log.info(f"Saved metrics -> {metrics_path}")
+            # Log the metrics.json as an artifact so it’s visible in the run UI.
+            mlflow.log_artifact(metrics_path, artifact_path="artifacts")
 
             # ---------------------------------------
             # Return artifact with CONFIG paths
@@ -257,10 +374,31 @@ class ModelTrainer:
                 file_path=combined_output_path, obj=model_predictor
             )  # save a combined object for prediction
             log.info(f"Saved combined ModelPredictor object -> {combined_output_path}")
+
+            mlflow.log_artifact(
+                combined_output_path,
+                artifact_path="combined_model_predictor",
+            )
+            # ---------------------------------------
+            # (Optional) Log the sklearn model using MLflow’s model format
+            # ---------------------------------------
+            # This lets you load via mlflow.sklearn.load_model later, if desired.
+            # We log the refit estimator under a clear path; registry is optional.
+            try:
+                mlflow.sklearn.log_model(
+                    sk_model=best_estimator,
+                    artifact_path="best_sklearn_model",
+                    input_example=X.head(5),
+                    registered_model_name="PredictiveMaintenanceBestModel",
+                )
+            except Exception as e:
+                log.warning(f"MLflow model logging/registration failed due to: {e}")
+
             log.info(
                 f"Model training process completed successfully. Trained model: {best['name']}; "
                 f"COMBINED OBJECT SAVED {combined_output_path}."
             )
+            save_object("final_model/model.joblib", best_estimator)
             return ModelTrainerArtifact(
                 trained_model_file_path=model_output_path,
                 combined_object_file_path=combined_output_path,

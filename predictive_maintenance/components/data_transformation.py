@@ -205,6 +205,9 @@ class DataTransformation:
                 file_path=self.data_transformation_config.transformation_object_file_path,
                 obj=preprocessor_pipeline,
             )
+            save_object(
+                file_path="final_model/preprocessor.joblib", obj=preprocessor_pipeline
+            )
             # Prepare artifact
             data_transformation_artifact = DataTransformationArtifact(
                 transformed_train_file_path=self.data_transformation_config.transformed_train_file_path,

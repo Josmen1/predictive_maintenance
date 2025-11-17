@@ -88,7 +88,8 @@ class ModelTrainerArtifact:
 
     trained_model_file_path: str
     combined_object_file_path: str
+    metrics_file_path: str
     cv_results_file_path: str
     test_predictions_file_path: str
-    train_model_artifact: ModelEvaluationArtifact
-    test_model_artifact: ModelEvaluationArtifact
+    # train_model_artifact: ModelEvaluationArtifact
+    # test_model_artifact: ModelEvaluationArtifact

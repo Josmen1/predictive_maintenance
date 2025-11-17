@@ -2,6 +2,7 @@ import os
 import sys
 import pandas as pd
 import numpy as np
+from typing import Optional
 
 """
 Initial constants for C-MAPSS dataset preprocessing. 
@@ -90,9 +91,17 @@ COMBINED_OBJECT_FILE_NAME: str = "combined_model_predictor.joblib"
 MODEL_SEARCH_OPTIONS = {
     "n_splits": 5,
     "random_state": 12,
-    "n_jobs": -1,
+    "n_jobs": 1,
     "enable_xgboost": True,
     "enable_lightgbm": True,
     "enable_random_forest": True,
     "enable_adaboost": True,
 }
+"""MLflow related constants"""
+MLFLOW_TRACKING_URI: Optional[str] = (
+    None  # Set to None for default local file-based tracking
+)
+MLFLOW_EXPERIMENT_NAME: str = "predictive_maintenance"
+MLFLOW_AUTOLOG: bool = True
+MLFLOW_LOG_MODELS: bool = True
+MLFLOW_TAGS: dict[str, str] = {"project": "Predictive Maintenance", "owner": "Menge"}

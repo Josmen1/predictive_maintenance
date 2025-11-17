@@ -252,7 +252,7 @@ class ModelTrainerConfig:
                 self.model_trainer_dir,
                 training_pipeline.MODEL_TRAINER_METRICS_DIR,
             )
-            self.metric_file_path = os.path.join(
+            self.metrics_file_path = os.path.join(
                 self.metric_dir,
                 training_pipeline.MODEL_TRAINER_METRICS_FILE_NAME,
             )
@@ -265,6 +265,12 @@ class ModelTrainerConfig:
             self.group_column = training_pipeline.GROUP_COLUMN
             self.model_search_options = training_pipeline.MODEL_SEARCH_OPTIONS
             self.id_cols = training_pipeline.ID_COLUMNS
+            # MLflow configurations
+            self.mlflow_tracking_uri = training_pipeline.MLFLOW_TRACKING_URI
+            self.mlflow_experiment_name = training_pipeline.MLFLOW_EXPERIMENT_NAME
+            self.mlflow_autolog = training_pipeline.MLFLOW_AUTOLOG
+            self.mlflow_log_models = training_pipeline.MLFLOW_LOG_MODELS
+            self.mlflow_tags = training_pipeline.MLFLOW_TAGS
 
         except Exception as e:
             raise PredictiveMaintenanceException(e, sys)

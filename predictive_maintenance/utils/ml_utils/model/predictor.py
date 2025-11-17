@@ -1,10 +1,10 @@
 from predictive_maintenance.exception.exception import PredictiveMaintenanceException
 import sys
-import os
+import numpy as np
+import pandas as pd
 from predictive_maintenance.logging.logger import get_logger
 
 log = get_logger(__name__)
-from predictive_maintenance.constants.training_pipeline import SAVED_MODEL_DIR, MODEL_FILE_NAME
 
 
 class ModelPredictor:
@@ -13,15 +13,22 @@ class ModelPredictor:
             log.info("Initializing ModelPredictor.")
             self.preprocessor = preprocessor
             self.model = model
+            # Common ID/display cols (do NOT assume they are never used by the preprocessor)
+            # self.id_cols = ["unit_number", "time_in_cycles", "subset", "split"]
         except Exception as e:
             raise PredictiveMaintenanceException(e, sys)
-        
-    def predict(self, X):
+
+    def transform(self, X: pd.DataFrame) -> pd.DataFrame:
         try:
-            log.info("Starting prediction process.")
-            X_processed = self.preprocessor.transform(X)
-            predictions = self.model.predict(X_processed)
-            log.info("Prediction process completed successfully.")
-            return predictions
+            log.info("Transforming input data using preprocessor")
+            return self.preprocessor.transform(X)
         except Exception as e:
             raise PredictiveMaintenanceException(e, sys)
+
+    def predict(self, X: pd.DataFrame) -> np.ndarray:
+        try:
+            log.info("Generating predictions using the model")
+            return self.model.predict(X)
+        except Exception as e:
+            raise PredictiveMaintenanceException(e, sys)
+    
