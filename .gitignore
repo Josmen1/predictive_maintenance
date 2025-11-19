@@ -49,3 +49,5 @@ yarn-error.log*
 .coverage.*
 nosetests.xml
 coverage.xml
+local.env
+.env.local
