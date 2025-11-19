@@ -8,7 +8,6 @@ on:
 env:
   IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/predictive-maintenance
   IMAGE_TAG: ${{ github.sha }}
-  EC2_OS_USER: ubuntu  # change to ec2-user if Amazon Linux
 
 jobs:
   build-and-deploy:
@@ -25,7 +24,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Log in to Docker Hub
+      - name: Log in to Docker Hub (GitHub runner)
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -33,11 +32,15 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t $IMAGE_NAME:$IMAGE_TAG .
+          docker build \
+            -t $IMAGE_NAME:$IMAGE_TAG \
+            -t $IMAGE_NAME:latest \
+            .
 
       - name: Push Docker image
         run: |
           docker push $IMAGE_NAME:$IMAGE_TAG
+          docker push $IMAGE_NAME:latest
 
       - name: Generate ephemeral SSH key (EC2 Instance Connect)
         run: |
@@ -48,25 +51,28 @@ jobs:
           aws ec2-instance-connect send-ssh-public-key \
             --instance-id ${{ secrets.EC2_INSTANCE_ID }} \
             --availability-zone ${{ secrets.EC2_AVAILABILITY_ZONE }} \
-            --instance-os-user $EC2_OS_USER \
+            --instance-os-user ubuntu \
             --ssh-public-key file:///tmp/github-ec2-key.pub
 
       - name: Deploy to EC2 using ephemeral SSH key
-        env:
-          EC2_HOST: ${{ secrets.EC2_HOST }}
         run: |
           chmod 600 /tmp/github-ec2-key
 
-          ssh -o StrictHostKeyChecking=no -i /tmp/github-ec2-key $EC2_OS_USER@$EC2_HOST << 'EOF'
-            sudo docker pull ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+          ssh -o StrictHostKeyChecking=no -i /tmp/github-ec2-key ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
+            # Log in to Docker Hub on EC2 (needed if repo is private)
+            sudo docker login -u '${{ secrets.DOCKERHUB_USERNAME }}' -p '${{ secrets.DOCKERHUB_TOKEN }}'
 
+            # Pull latest image
+            sudo docker pull '${{ env.IMAGE_NAME }}:latest'
+
+            # Stop & remove any existing container
             sudo docker stop predictive-maintenance || true
             sudo docker rm predictive-maintenance || true
 
+            # Run new container with env file
             sudo docker run -d \
               --name predictive-maintenance \
               -p 80:8000 \
-              --env-file /home/$EC2_OS_USER/predictive-maintenance.env \
-              ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+              --env-file /home/ubuntu/predictive-maintenance.env \
+              '${{ env.IMAGE_NAME }}:latest'
           EOF
-
