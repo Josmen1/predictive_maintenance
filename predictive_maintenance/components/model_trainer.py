@@ -7,7 +7,14 @@ import mlflow.sklearn
 
 import dagshub
 
-dagshub.init(repo_owner="Josmen1", repo_name="predictive_maintenance", mlflow=True)
+# Initialize Dagshub MLflow integration if enabled via env var to avoid hard dependency, circular issues, etc.
+if os.getenv("ENABLE_DAGSHUB", "0") == "1":
+    dagshub.init(
+        repo_owner=os.getenv("DAGSHUB_REPO_OWNER"),
+        repo_name=os.getenv("DAGSHUB_REPO_NAME"),
+        mlflow=True,
+        token=os.getenv("DAGSHUB_TOKEN"),
+    )
 
 
 from sklearn.model_selection import GroupKFold, GridSearchCV

@@ -23,7 +23,8 @@ from fastapi.templating import Jinja2Templates
 
 from predictive_maintenance.logging.logger import get_logger
 from predictive_maintenance.exception.exception import PredictiveMaintenanceException
-from predictive_maintenance.pipeline.training_pipeline import TrainingPipeline
+
+# from predictive_maintenance.pipeline.training_pipeline import TrainingPipeline
 from predictive_maintenance.utils.main_utils.general_utils import load_object
 from predictive_maintenance.constants.training_pipeline import (
     DATA_INGESTION_DATABASE_NAME,
@@ -57,6 +58,9 @@ async def index():
 @app.get("/train")
 async def train_route():
     try:
+        # lazy import to avoid circular imports, especially Dagshub authentication issues
+        from predictive_maintenance.pipeline.training_pipeline import TrainingPipeline
+
         training_pipeline = TrainingPipeline()
         training_pipeline.run_pipeline()
         return Response("Training successful !!")
