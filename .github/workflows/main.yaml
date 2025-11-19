@@ -58,14 +58,15 @@ jobs:
           chmod 600 /tmp/github-ec2-key
 
           ssh -o StrictHostKeyChecking=no -i /tmp/github-ec2-key $EC2_OS_USER@$EC2_HOST << 'EOF'
-            docker pull ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+            sudo docker pull ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
 
-            docker stop predictive-maintenance || true
-            docker rm predictive-maintenance || true
+            sudo docker stop predictive-maintenance || true
+            sudo docker rm predictive-maintenance || true
 
-            docker run -d \
+            sudo docker run -d \
               --name predictive-maintenance \
               -p 80:8000 \
-              --env-file /home/${EC2_OS_USER}/predictive-maintenance.env \
+              --env-file /home/$EC2_OS_USER/predictive-maintenance.env \
               ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
           EOF
+
