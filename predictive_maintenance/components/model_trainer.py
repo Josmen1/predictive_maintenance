@@ -6,14 +6,17 @@ import mlflow
 import mlflow.sklearn
 
 import dagshub
+from dagshub.auth import add_app_token
 
 # Initialize Dagshub MLflow integration if enabled via env var to avoid hard dependency, circular issues, etc.
-if os.getenv("ENABLE_DAGSHUB", "0") == "1":
+enable_dagshub = os.getenv("ENABLE_DAGSHUB", "0") == "1"
+token = os.getenv("DAGSHUB_USER_TOKEN") or os.getenv("DAGSHUB_TOKEN")
+if enable_dagshub and token:
+    add_app_token(token)
     dagshub.init(
         repo_owner=os.getenv("DAGSHUB_REPO_OWNER"),
         repo_name=os.getenv("DAGSHUB_REPO_NAME"),
         mlflow=True,
-        token=os.getenv("DAGSHUB_TOKEN"),
     )
 
 
