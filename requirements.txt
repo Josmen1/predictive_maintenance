@@ -4,7 +4,6 @@ uvicorn[standard]
 pandas
 numpy
 matplotlib
-pymongo
 pymongo[srv]==3.12
 scikit-learn
 seaborn
@@ -22,5 +21,6 @@ joblib
 mlflow
 dagshub
 python-multipart
-# pickle5
-## -e .
+certifi
+jinja2
+-e .
