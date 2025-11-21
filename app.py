@@ -19,6 +19,7 @@ from fastapi.responses import Response
 from uvicorn import run as app_run
 from starlette.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
+from prefect.deployments import run_deployment
 
 from predictive_maintenance.logging.logger import get_logger
 from predictive_maintenance.exception.exception import PredictiveMaintenanceException
@@ -57,12 +58,8 @@ async def index():
 @app.get("/train")
 async def train_route():
     try:
-        # lazy import to avoid circular imports, especially Dagshub authentication issues
-        from predictive_maintenance.pipeline.training_pipeline import TrainingPipeline
-
-        training_pipeline = TrainingPipeline()
-        training_pipeline.run_pipeline()
-        return Response("Training successful !!")
+        result = run_deployment("predictive-maintenance-training/pm-train")
+        return {"status": "submitted", "flow_run_id": str(result.id)}
     except Exception as e:
         raise PredictiveMaintenanceException(e, sys) from e
 
