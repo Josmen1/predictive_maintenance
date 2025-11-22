@@ -60,10 +60,6 @@ async def index():
 @app.get("/train")
 async def train_route():
     try:
-        """
-        result = run_deployment("predictive-maintenance-training/pm-train")
-        return {"status": "submitted", "flow_run_id": str(result.id)}
-        """
         # --- Background thread training approach
         """
         Trigger model training in a background thread so the API stays responsive.
