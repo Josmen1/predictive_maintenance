@@ -2,6 +2,7 @@ import os
 import sys
 import pandas as pd
 import certifi
+from threading import Thread
 
 ca = certifi.where()
 
@@ -19,7 +20,8 @@ from fastapi.responses import Response
 from uvicorn import run as app_run
 from starlette.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
-from prefect.deployments import run_deployment
+
+# from prefect.deployments import run_deployment
 
 from predictive_maintenance.logging.logger import get_logger
 from predictive_maintenance.exception.exception import PredictiveMaintenanceException
@@ -58,8 +60,32 @@ async def index():
 @app.get("/train")
 async def train_route():
     try:
+        """
         result = run_deployment("predictive-maintenance-training/pm-train")
         return {"status": "submitted", "flow_run_id": str(result.id)}
+        """
+        # --- Background thread training approach
+        """
+        Trigger model training in a background thread so the API stays responsive.
+        """
+        # Lazy import to avoid Dagshub and Prefect dependencies unless needed
+        from predictive_maintenance.pipeline.training_pipeline import (
+            TrainingPipeline,
+        )
+
+        def run_training():
+            try:
+                logger.info("Starting training pipeline...")
+                pipeline = TrainingPipeline()
+                pipeline.run_pipeline()
+                logger.info("Training pipeline completed successfully")
+            except Exception as e:
+                # log but don't crash the api
+                logger.error(f"Error occurred during training: {e}")
+
+        # Start training in a daemon thread
+        Thread(target=run_training, daemon=True).start()
+        return {"status": "training_started"}
     except Exception as e:
         raise PredictiveMaintenanceException(e, sys) from e
 
